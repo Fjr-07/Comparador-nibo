@@ -46,7 +46,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
     })
     df_excel["Data"] = pd.to_datetime(df_excel["Data"]).dt.strftime("%Y-%m-%d")
     df_excel["Descrição"] = df_excel["Descrição"].astype(str).apply(normalizar_descricao)
-    df_excel["Valor"] = df_excel["Valor"].astype(float).round(2)
+    df_excel["Valor"] = pd.to_numeric(df_excel["Valor"], errors="coerce").round(2)
 
     # 📥 Carregar PDF ou OFX
     dados = []
@@ -82,8 +82,9 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
         st.stop()
 
     df_extrato = pd.DataFrame(dados)
+    df_extrato["Valor"] = pd.to_numeric(df_extrato["Valor"], errors="coerce").round(2)
 
-    # 🔍 Comparação
+    # 🔍 Comparação por chave
     df_extrato["Chave"] = df_extrato["Data"] + "|" + df_extrato["Descrição"] + "|" + df_extrato["Valor"].astype(str)
     df_excel["Chave"] = df_excel["Data"] + "|" + df_excel["Descrição"] + "|" + df_excel["Valor"].astype(str)
 
@@ -98,24 +99,20 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
         suffixes=("_excel", "_extrato")
     )
 
-# Garantir que os valores são numéricos e não nulos
-df_merged = df_merged[
-    df_merged["Valor_excel"].notnull() &
-    df_merged["Valor_extrato"].notnull()
-]
+    df_merged = df_merged[
+        df_merged["Valor_excel"].notnull() &
+        df_merged["Valor_extrato"].notnull()
+    ]
+    df_merged["Valor_excel"] = pd.to_numeric(df_merged["Valor_excel"], errors="coerce")
+    df_merged["Valor_extrato"] = pd.to_numeric(df_merged["Valor_extrato"], errors="coerce")
 
-df_merged["Valor_excel"] = pd.to_numeric(df_merged["Valor_excel"], errors="coerce")
-df_merged["Valor_extrato"] = pd.to_numeric(df_merged["Valor_extrato"], errors="coerce")
+    mascara_diferente = ~np.isclose(
+        df_merged["Valor_excel"].values,
+        df_merged["Valor_extrato"].values,
+        atol=0.01
+    )
 
-# Comparação com tolerância
-mascara_diferente = ~np.isclose(
-    df_merged["Valor_excel"].values,
-    df_merged["Valor_extrato"].values,
-    atol=0.01
-)
-
-divergentes = df_merged.loc[mascara_diferente, ["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
-
+    divergentes = df_merged.loc[mascara_diferente, ["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
 
     # 📋 Exibir resultados
     st.subheader("❌ Lançamentos faltando no Excel")
