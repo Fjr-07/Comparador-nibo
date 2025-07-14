@@ -27,25 +27,20 @@ def normalizar_descricao(texto):
 
 if st.button("🔍 Comparar") and excel_file and extrato_file:
 
-    # 📥 Carregar Excel
+    # 📥 Carregar Excel com estrutura fixa
     df_excel = pd.read_excel(excel_file)
-    df_excel.columns = [c.strip().lower() for c in df_excel.columns]
 
-    col_data = next((c for c in df_excel.columns if 'data' in c), None)
-    col_valor = next((c for c in df_excel.columns if 'valor' in c), None)
-    col_desc = next((c for c in df_excel.columns if 'hist' in c or 'descri' in c), None)
-
-    if not (col_data and col_valor and col_desc):
-        st.error("❌ Não foi possível identificar colunas 'Data', 'Descrição' e 'Valor' no Excel.")
+    if not all(c in df_excel.columns for c in ["Data", "Descricao", "Valor (R$)"]):
+        st.error("❌ A planilha deve conter as colunas: 'Data', 'Descricao' e 'Valor (R$)'")
         st.stop()
 
     df_excel = df_excel.rename(columns={
-        col_data: "Data",
-        col_valor: "Valor",
-        col_desc: "Descrição"
+        "Data": "Data",
+        "Descricao": "Descrição",
+        "Valor (R$)": "Valor"
     })
     df_excel["Data"] = pd.to_datetime(df_excel["Data"]).dt.strftime("%Y-%m-%d")
-    df_excel["Descrição"] = df_excel["Descrição"].astype(str).apply(normalizar_descricao)
+    df_excel["Descrição"] = df_excel["Descrição"].fillna("").astype(str).apply(normalizar_descricao)
     df_excel["Valor"] = pd.to_numeric(df_excel["Valor"], errors="coerce").round(2)
 
     # 📥 Carregar PDF ou OFX
@@ -64,7 +59,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
                         valor_str = match.group(3).replace(".", "").replace(",", ".")
                         tipo = match.group(4)
 
-                        ano = "2025"  # fixo, mas pode ser extraído dinamicamente
+                        ano = "2025"  # fixo, pode ser ajustado dinamicamente se quiser
                         data_formatada = pd.to_datetime(f"{data_parcial}/{ano}", dayfirst=True).strftime("%Y-%m-%d")
 
                         valor = float(valor_str)
@@ -137,3 +132,4 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
 
     st.subheader("⚠️ Lançamentos com valor divergente")
     st.dataframe(divergentes, use_container_width=True)
+
