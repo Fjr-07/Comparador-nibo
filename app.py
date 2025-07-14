@@ -9,10 +9,10 @@ st.set_page_config(page_title="Comparador NIBO", layout="wide")
 st.title("📊 Comparador de Lançamentos - PDF/OFX vs Excel")
 
 st.markdown("""
-Faça upload de um **extrato bancário (PDF ou OFX)** e um **Excel com lançamentos** para comparar:
+Envie um **extrato bancário (PDF ou OFX)** e um **Excel com lançamentos** para comparar:
 
-- Lançamentos faltantes no Excel
-- Lançamentos faltantes no extrato
+- Lançamentos faltando no Excel
+- Lançamentos faltando no Extrato
 - Lançamentos com valor divergente
 """)
 
@@ -21,6 +21,7 @@ excel_file = st.file_uploader("📁 Envie o Excel de lançamentos (.xlsx)", type
 extrato_file = st.file_uploader("📄 Envie o extrato bancário (PDF ou OFX)", type=["pdf", "ofx"])
 
 if st.button("🔍 Comparar") and excel_file and extrato_file:
+
     # 📥 Carregar Excel
     df_excel = pd.read_excel(excel_file)
     df_excel.columns = [c.strip().lower() for c in df_excel.columns]
@@ -56,8 +57,14 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
                         desc = match.group(2).strip()
                         val = float(match.group(3).replace(".", "").replace(",", "."))
                         dados.append({"Data": data, "Descrição": desc, "Valor": val})
+
     elif extrato_file.name.endswith(".ofx"):
-        ofx = OfxParser.parse(io.StringIO(extrato_file.read().decode()))
+        content = extrato_file.read()
+        try:
+            decoded = content.decode('utf-8')
+        except UnicodeDecodeError:
+            decoded = content.decode('latin-1')
+        ofx = OfxParser.parse(io.StringIO(decoded))
         for t in ofx.account.statement.transactions:
             dados.append({
                 "Data": t.date.strftime("%Y-%m-%d"),
@@ -66,7 +73,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
             })
 
     if not dados:
-        st.warning("Nenhum lançamento encontrado no extrato.")
+        st.warning("❌ Nenhum lançamento encontrado no extrato.")
         st.stop()
 
     df_extrato = pd.DataFrame(dados)
@@ -95,3 +102,4 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
 
     st.subheader("⚠️ Lançamentos com valor divergente")
     st.dataframe(divergentes, use_container_width=True)
+
