@@ -56,12 +56,26 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
             for p in pdf.pages:
                 text = p.extract_text()
                 for linha in text.split("\n"):
-                    match = re.match(r"(\d{2}[\/\-]\d{2}[\/\-]\d{4})\s+(.+?)\s+R\$ *([\d\.,\-]+)", linha)
+                    linha = linha.strip()
+                    match = re.match(r"(\d{2}/\d{2})\s+(.+?)\s+([\d\.,]+)([DC])$", linha)
                     if match:
-                        data = pd.to_datetime(match.group(1), dayfirst=True).strftime("%Y-%m-%d")
-                        desc = normalizar_descricao(match.group(2))
-                        val = float(match.group(3).replace(".", "").replace(",", "."))
-                        dados.append({"Data": data, "Descrição": desc, "Valor": val})
+                        data_parcial = match.group(1)
+                        desc = match.group(2).strip()
+                        valor_str = match.group(3).replace(".", "").replace(",", ".")
+                        tipo = match.group(4)
+
+                        ano = "2025"  # fixo, mas pode ser extraído dinamicamente
+                        data_formatada = pd.to_datetime(f"{data_parcial}/{ano}", dayfirst=True).strftime("%Y-%m-%d")
+
+                        valor = float(valor_str)
+                        if tipo == "D":
+                            valor *= -1
+
+                        dados.append({
+                            "Data": data_formatada,
+                            "Descrição": normalizar_descricao(desc),
+                            "Valor": round(valor, 2)
+                        })
 
     elif extrato_file.name.endswith(".ofx"):
         content = extrato_file.read()
