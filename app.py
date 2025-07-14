@@ -3,6 +3,7 @@ import pandas as pd
 import pdfplumber
 import io
 import re
+import numpy as np
 from ofxparse import OfxParser
 from unidecode import unidecode
 
@@ -89,13 +90,19 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
     faltando_no_excel = df_extrato[~df_extrato["Chave"].isin(df_excel["Chave"])].drop(columns=["Chave"])
     faltando_no_extrato = df_excel[~df_excel["Chave"].isin(df_extrato["Chave"])].drop(columns=["Chave"])
 
+    # ⚠️ Comparar lançamentos com mesma data + descrição e valores diferentes (com tolerância)
     df_merged = pd.merge(
         df_excel, df_extrato,
         on=["Data", "Descrição"],
         how="inner",
         suffixes=("_excel", "_extrato")
     )
-    divergentes = df_merged[df_merged["Valor_excel"] != df_merged["Valor_extrato"]][["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
+
+    divergentes = df_merged[~np.isclose(
+        df_merged["Valor_excel"],
+        df_merged["Valor_extrato"],
+        atol=0.01
+    )][["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
 
     # 📋 Exibir resultados
     st.subheader("❌ Lançamentos faltando no Excel")
@@ -106,5 +113,3 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
 
     st.subheader("⚠️ Lançamentos com valor divergente")
     st.dataframe(divergentes, use_container_width=True)
-
-
