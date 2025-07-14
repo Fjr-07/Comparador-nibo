@@ -4,6 +4,7 @@ import pdfplumber
 import io
 import re
 from ofxparse import OfxParser
+from unidecode import unidecode
 
 st.set_page_config(page_title="Comparador NIBO", layout="wide")
 st.title("📊 Comparador de Lançamentos - PDF/OFX vs Excel")
@@ -19,6 +20,9 @@ Envie um **extrato bancário (PDF ou OFX)** e um **Excel com lançamentos** para
 # Uploads
 excel_file = st.file_uploader("📁 Envie o Excel de lançamentos (.xlsx)", type="xlsx")
 extrato_file = st.file_uploader("📄 Envie o extrato bancário (PDF ou OFX)", type=["pdf", "ofx"])
+
+def normalizar_descricao(texto):
+    return re.sub(r'\s+', ' ', unidecode(str(texto)).strip().lower())
 
 if st.button("🔍 Comparar") and excel_file and extrato_file:
 
@@ -40,7 +44,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
         col_desc: "Descrição"
     })
     df_excel["Data"] = pd.to_datetime(df_excel["Data"]).dt.strftime("%Y-%m-%d")
-    df_excel["Descrição"] = df_excel["Descrição"].astype(str).str.strip()
+    df_excel["Descrição"] = df_excel["Descrição"].astype(str).apply(normalizar_descricao)
     df_excel["Valor"] = df_excel["Valor"].astype(float).round(2)
 
     # 📥 Carregar PDF ou OFX
@@ -54,7 +58,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
                     match = re.match(r"(\d{2}[\/\-]\d{2}[\/\-]\d{4})\s+(.+?)\s+R\$ *([\d\.,\-]+)", linha)
                     if match:
                         data = pd.to_datetime(match.group(1), dayfirst=True).strftime("%Y-%m-%d")
-                        desc = match.group(2).strip()
+                        desc = normalizar_descricao(match.group(2))
                         val = float(match.group(3).replace(".", "").replace(",", "."))
                         dados.append({"Data": data, "Descrição": desc, "Valor": val})
 
@@ -68,7 +72,7 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
         for t in ofx.account.statement.transactions:
             dados.append({
                 "Data": t.date.strftime("%Y-%m-%d"),
-                "Descrição": t.memo.strip(),
+                "Descrição": normalizar_descricao(t.memo),
                 "Valor": round(t.amount, 2)
             })
 
@@ -102,4 +106,5 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
 
     st.subheader("⚠️ Lançamentos com valor divergente")
     st.dataframe(divergentes, use_container_width=True)
+
 
