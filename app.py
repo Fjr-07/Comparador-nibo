@@ -98,11 +98,24 @@ if st.button("🔍 Comparar") and excel_file and extrato_file:
         suffixes=("_excel", "_extrato")
     )
 
-    divergentes = df_merged[~np.isclose(
-        df_merged["Valor_excel"],
-        df_merged["Valor_extrato"],
-        atol=0.01
-    )][["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
+# Garantir que os valores são numéricos e não nulos
+df_merged = df_merged[
+    df_merged["Valor_excel"].notnull() &
+    df_merged["Valor_extrato"].notnull()
+]
+
+df_merged["Valor_excel"] = pd.to_numeric(df_merged["Valor_excel"], errors="coerce")
+df_merged["Valor_extrato"] = pd.to_numeric(df_merged["Valor_extrato"], errors="coerce")
+
+# Comparação com tolerância
+mascara_diferente = ~np.isclose(
+    df_merged["Valor_excel"].values,
+    df_merged["Valor_extrato"].values,
+    atol=0.01
+)
+
+divergentes = df_merged.loc[mascara_diferente, ["Data", "Descrição", "Valor_excel", "Valor_extrato"]]
+
 
     # 📋 Exibir resultados
     st.subheader("❌ Lançamentos faltando no Excel")
